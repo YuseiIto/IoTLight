@@ -1,18 +1,12 @@
+#define BLYNK_PRINT Serial
 #include <WiFi.h>
-
 #include <BlynkSimpleEsp32.h>
-//自分の環境に合わせて変更
-char auth[] = "YOUR_TOKEN";
-char ssid[] = "SSID";
-char pass[] = "PASSWORD";
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "driver/rmt.h"
 #include "http_parser.h"
-
-#define SSID "<ssid>"
-#define PASSWORD "<pass>"
+#include "secret_config.h"
 
 #define RMT_TX_CHANNEL RMT_CHANNEL_4
 #define RMT_TX_GPIO_NUM GPIO_NUM_33
@@ -30,12 +24,13 @@ uint32_t turnOff_data[] = {0x054b8af1, 0x01318180, 0x012e8188, 0x03ed818a, 0x03e
 uint32_t turnOn_data[] = {0x054c8aee, 0x012a817f, 0x0128818e, 0x03f28190, 0x03f1817e, 0x0129817f, 0x03f18190, 0x012b817d, 0x012a818e, 0x0127818f, 0x03f18190, 0x01288180, 0x01288190, 0x03f2818f, 0x0129817e, 0x03f2818f, 0x012a817f, 0x03f2818e, 0x0128817e, 0x01288190, 0x03f28190, 0x012b817d, 0x0127818f, 0x01278191, 0x01278191, 0x03f18191, 0x012a817e, 0x03f0818f, 0x03f2817f, 0x012a817e, 0x03f0818f, 0x01288180, 0x01278190, 0x01298191, 0x0128818f, 0x03f08190, 0x01278180, 0x01278191, 0x03f08191, 0x01268181, 0x01268192, 0x00008191, 0x4fa4f0ee, 0xecf20312, 0x8908bd34, 0xbd348000, 0xf0eecac4, 0x03124fa4, 0xbd34ecf2, 0xf0eecac4, 0x2aaa8040, 0x80008003, 0x83010e88, 0x8302df00, 0x8000800a, 0x80008000, 0x800a8000, 0x80008000, 0x80008000, 0x80008000, 0x80008000, 0x80008000, 0x80008000, 0x80008000, 0xad008000, 0x154c33b9, 0x868d6e43, 0x8b72f454, 0x80622442, 0x2dbe6f00, 0x2d56f8de, 0x800081ba, 0xbffb3d49, 0xbffb5394, 0x6f008002, 0xf8de2dbe, 0x80ba2d56, 0xbffb3d49, 0xbffb5394, 0x8408ff00, 0x80008000, 0x5d408000, 0x72508031, 0x804a9004, 0x5ead3eef, 0x3aadd678, 0xbffb3d49, 0xbffb5394, 0x1fe591cf, 0x51f2ad96, 0x9081895f, 0x8301803c, 0x8600c910, 0x5ead3eef, 0x3aadd678, 0xbffb3d49, 0xbffb5394, 0x80008044, 0x80008000, 0xbffb3682, 0x802a802a, 0x80008000, 0x80008000, 0x80008000, 0x7fff8000, 0x7fff7fff, 0x03124fa4, 0x8608ecf2, 0x80088100, 0x81008406, 0x03124fa4, 0x28c0ecf2, 0x8000c201, 0x80008000, 0xc20128c0, 0x3aadd678, 0xbffb376d, 0xbffb376c, 0x800080aa, 0x80008000, 0xbffb36ec, 0xbffb36ec, 0x80008001, 0xbffb3714, 0x8038801a, 0x80018000, 0x80008001, 0x80008000, 0xbffcfd24, 0x80008000, 0xbffb36f8, 0x4005a04e, 0xbffb371c, 0x80008000, 0x8000b009, 0x1d008117, 0x84949300, 0x81308306, 0x80008000, 0x800f78a7, 0xbffb7738, 0x80008000, 0x80008000, 0x8000c988, 0xcac4bd34, 0x4fa4f0ee, 0xecf20312, 0x7fff7fff, 0x80107fff, 0x80028006, 0x8000a000, 0x2aaa8000, 0x80008003, 0x81008608, 0x84068008, 0x4fa48100, 0xecf20312, 0xc20128c0, 0x80008000, 0x28c08000};
 void process();
 
+bool blynk_conected = false;
 WiFiServer server(80);
 
 void setup()
 {
  Serial.begin(115200);
-
+ Blynk.begin(BLYNK_TOKEN, SSID, PASSWORD);
  WiFi.begin(SSID, PASSWORD);
  while (WiFi.status() != WL_CONNECTED)
  {
@@ -54,6 +49,7 @@ void setup()
 
 void loop()
 {
+ Blynk.run();
  process();
 }
 
@@ -349,6 +345,16 @@ void process()
    send_202(client);
   }
  }
+ else if (strcmp(url, "/health") == 0)
+ {
+  client.println("HTTP/1.1 200 OK");
+  client.println("Content-type:text/html");
+  client.println("Connection: close");
+  client.println();
+  client.printf("<!doctype html><head><title>myLight Monitor</title><meta charset=\"utf-8\"></head><body><h1>Health Monitor</h1><p>Hello from myLight. Now I'm awake!<br> Blynk Status: %s </p></body>", (blynk_conected
+                                                                                                                                                                                                              ? "<span style=\"color:green\">Conneected</span>"
+                                                                                                                                                                                                              : "<span style=\"color:red\">Disconnected</span>"));
+ }
  else
  {
   send_404(client);
@@ -356,4 +362,35 @@ void process()
 
  client.flush();
  client.stop();
+}
+
+BLYNK_WRITE(V1)
+{ //Blynk Virtual Pin
+ Serial.println("-------Blynk Request--------");
+ const char *word = param[0].asString();
+
+ Serial.printf("Said: '%s'\r\n", word);
+
+ if (strncmp(word, "off", 3) == 0 || strncmp(word, " off", 4) == 0)
+ {
+  turnOff();
+  Serial.println("Handled : turn OFF");
+ }
+ else if (strncmp(word, "on", 2) == 0 || strncmp(word, " on", 3) == 0)
+ {
+  turnOn();
+  Serial.println("Handled : turn ON");
+ }
+}
+
+BLYNK_CONNECTED()
+{
+ blynk_conected = true;
+ Serial.println("Connected!");
+}
+
+BLYNK_DISCONNECTED()
+{
+ blynk_conected = false;
+ Serial.println("Disconnected!");
 }
