@@ -27,6 +27,8 @@ void process();
 bool blynk_conected = false;
 WiFiServer server(80);
 
+struct tm booted_time;
+
 void setup()
 {
  Serial.begin(115200);
@@ -43,6 +45,10 @@ void setup()
  Serial.println(WiFi.localIP());
 
  server.begin();
+
+ configTime(9 * 3600L, 0, "ntp.nict.jp", "time.google.com", "ntp.jst.mfeed.ad.jp");
+ getLocalTime(&booted_time);
+
  init_tx();
  init_rx();
 }
@@ -347,14 +353,15 @@ void process()
  }
  else if (strcmp(url, "/health") == 0)
  {
+
   client.println("HTTP/1.1 200 OK");
   client.println("Content-type:text/html");
   client.println("Connection: close");
   client.println();
-  client.printf("<!doctype html><head><title>myLight Monitor</title><meta charset=\"utf-8\"></head><body><h1>Health Monitor</h1><p>Hello from myLight. Now I'm awake!<br> Blynk Status: %s </p></body>", (blynk_conected
-                                                                                                                                                                                                              ? "<span style=\"color:green\">Conneected</span>"
-                                                                                                                                                                                                              : "<span style=\"color:red\">Disconnected</span>"));
+  client.printf("<!doctype html><head><title>myLight Monitor</title><meta charset=\"utf-8\"><script> var dateObj = null; function intervalHandler() {     var diff = Math.round((new Date() - dateObj) / 1000);     var sec = Math.round(diff % 60);     diff = (diff - sec) / 60;      var min = Math.round(diff % 60);     diff = (diff - min) / 60;     var hour = Math.round(diff % 24);     diff = (diff - hour) / 24;     var day = diff;     document.getElementById('uptime').innerHTML = day + ' days ' + hour + ' hours ' + min + ' minutes ' + sec + ' secounds'; } window.onload = function() {     dateObj = new Date(document.getElementById('bootDate').innerHTML);     setInterval(intervalHandler, 1000); }</script></head><body><h1>Health Monitor</h1><p>Hello from myLight. Now I'm awake!<br> Blynk Status :  %s <br>Boot :  <span id=\"bootDate\">%04d/%02d/%02d %02d:%02d:%02d</span><br>Uptime for :  <span id=\"uptime\"></span></p></body>", (blynk_conected ? "<span style=\"color:green\">Conneected</span>" : "<span style=\"color:red\">Disconnected</span>"), booted_time.tm_year + 1900, booted_time.tm_mon + 1, booted_time.tm_mday,
+                booted_time.tm_hour, booted_time.tm_min, booted_time.tm_sec);
  }
+
  else
  {
   send_404(client);
